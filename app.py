@@ -26,7 +26,7 @@ def display_dataframe(df):
         'Labor per Unit ($)': format_currency
     }))
 
-def calculate_quick(materials_df, area, complexity_factor):
+def calculate_quick(materials_df, area, complexity_factor, extras=None):
     results = []
     total_cost = 0
     total_material_cost = 0
@@ -66,12 +66,12 @@ def calculate_quick(materials_df, area, complexity_factor):
         'Total Cost ($)': round(total_cost, 2)
     }])
     df = pd.concat([df, totals_row], ignore_index=True)
-    if extra_costs:
-        for label, val in extra_costs:
+    if extras:
+        for label, val in extras:
             df = pd.concat([df, pd.DataFrame([{ 'Material': f"Extra: {label}", 'Units Needed': '', 'Unit Coverage (sqft)': '', 'Unit Price ($)': '', 'Labor per Unit ($)': '', 'Material Cost ($)': val, 'Labor Cost ($)': 0, 'Total Cost ($)': val }])], ignore_index=True)
     return df, round(total_cost + sum(val for _, val in extra_costs), 2)
 
-def calculate_detailed(materials_df, rooms):
+def calculate_detailed(materials_df, rooms, extras=None):
     all_results = []
     grand_total = 0
 
@@ -88,7 +88,7 @@ def calculate_detailed(materials_df, rooms):
         window_area = windows * 12
         total_area = max(wall_area + ceiling_area - (door_area + window_area), 0)
 
-        room_results, room_cost = calculate_quick(materials_df, total_area, 0.10)
+        room_results, room_cost = calculate_quick(materials_df, total_area, 0.10, extras=None)
         room_results.insert(0, 'Room', room['name'])
         all_results.append(room_results)
         grand_total += room_cost
@@ -121,7 +121,7 @@ if mode == "Quick Estimate (sq ft)":
     complexity = st.slider("Complexity factor (corners, curves)", 0.0, 0.30, 0.05, step=0.01)
 
     if st.button("Estimate Costs"):
-        result_df, total = calculate_quick(materials, area, complexity)
+        result_df, total = calculate_quick(materials, area, complexity, extras=extra_costs)
 
         st.subheader("📊 Material Breakdown")
         display_dataframe(result_df)
@@ -165,7 +165,7 @@ else:
         })
 
     if st.button("Estimate Room-Based Costs"):
-        detailed_df, total = calculate_detailed(materials, rooms)
+        detailed_df, total = calculate_detailed(materials, rooms, extras=extra_costs)
 
         st.subheader("📊 Room-by-Room Breakdown")
         display_dataframe(detailed_df)
