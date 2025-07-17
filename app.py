@@ -66,7 +66,7 @@ def calculate_quick(materials_df, area, complexity_factor):
         'Total Cost ($)': round(total_cost, 2)
     }])
     df = pd.concat([df, totals_row], ignore_index=True)
-        if extra_costs:
+    if extra_costs:
         for label, val in extra_costs:
             df = pd.concat([df, pd.DataFrame([{ 'Material': f"Extra: {label}", 'Units Needed': '', 'Unit Coverage (sqft)': '', 'Unit Price ($)': '', 'Labor per Unit ($)': '', 'Material Cost ($)': val, 'Labor Cost ($)': 0, 'Total Cost ($)': val }])], ignore_index=True)
     return df, round(total_cost + sum(val for _, val in extra_costs), 2)
@@ -94,7 +94,7 @@ def calculate_detailed(materials_df, rooms):
         grand_total += room_cost
 
     full_df = pd.concat(all_results, ignore_index=True)
-        if extra_costs:
+    if extra_costs:
         for label, val in extra_costs:
             full_df = pd.concat([full_df, pd.DataFrame([{ 'Room': '', 'Material': f"Extra: {label}", 'Units Needed': '', 'Unit Coverage (sqft)': '', 'Unit Price ($)': '', 'Labor per Unit ($)': '', 'Material Cost ($)': val, 'Labor Cost ($)': 0, 'Total Cost ($)': val }])], ignore_index=True)
     return full_df, round(grand_total + sum(val for _, val in extra_costs), 2)
