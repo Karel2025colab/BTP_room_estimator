@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import os
 import math
-import matplotlib.pyplot as plt
 from fpdf import FPDF
 from datetime import datetime
 
@@ -46,7 +45,6 @@ def calculate_quick(materials_df, area, complexity_factor):
     total_cost = 0
     total_material_cost = 0
     total_labor_cost = 0
-    shopping_list = []
 
     for _, row in materials_df.iterrows():
         raw_units = (area / row['coverage_sqft']) * (1 + row['waste_factor'] + complexity_factor)
@@ -66,7 +64,6 @@ def calculate_quick(materials_df, area, complexity_factor):
             'Total Cost ($)': round(total, 2)
         })
 
-        shopping_list.append({'Material': row['material'], 'Units Needed': units_needed})
         total_material_cost += material_cost
         total_labor_cost += labor_cost
         total_cost += total
@@ -83,12 +80,10 @@ def calculate_quick(materials_df, area, complexity_factor):
         'Total Cost ($)': round(total_cost, 2)
     }])
     df = pd.concat([df, totals_row], ignore_index=True)
-    shopping_df = pd.DataFrame(shopping_list)
-    return df, round(total_cost, 2), shopping_df
+    return df, round(total_cost, 2)
 
 def calculate_detailed(materials_df, rooms):
     all_results = []
-    all_shopping = []
     grand_total = 0
 
     for room in rooms:
@@ -104,32 +99,19 @@ def calculate_detailed(materials_df, rooms):
         window_area = windows * 12
         total_area = max(wall_area + ceiling_area - (door_area + window_area), 0)
 
-        room_results, room_cost, room_shopping = calculate_quick(materials_df, total_area, 0.10)
+        room_results, room_cost = calculate_quick(materials_df, total_area, 0.10)
         room_results.insert(0, 'Room', room['name'])
-        for item in room_shopping:
-            item['Room'] = room['name']
-        all_shopping.extend(room_shopping)
-
         all_results.append(room_results)
         grand_total += room_cost
 
     full_df = pd.concat(all_results, ignore_index=True)
-    shopping_df = pd.DataFrame(all_shopping)
-    return full_df, round(grand_total, 2), shopping_df
-
-def plot_cost_breakdown(df):
-    chart_data = df[df['Material'] != 'TOTAL']
-    fig, ax = plt.subplots()
-    ax.pie(chart_data['Total Cost ($)'], labels=chart_data['Material'], autopct='%1.1f%%')
-    ax.set_title("Material Cost Breakdown")
-    st.pyplot(fig)
+    return full_df, round(grand_total, 2)
 
 # --- Streamlit UI ---
 st.title("📐 Sheetrock Installation Estimator")
 project_name = st.text_input("Project Name", "Untitled Project")
 
 materials = load_materials()
-
 mode = st.radio("Choose estimate type:", ["Quick Estimate (sq ft)", "Detailed Estimate (by room)"])
 
 if mode == "Quick Estimate (sq ft)":
@@ -137,7 +119,7 @@ if mode == "Quick Estimate (sq ft)":
     complexity = st.slider("Complexity factor (corners, curves)", 0.0, 0.30, 0.05, step=0.01)
 
     if st.button("Estimate Costs"):
-        result_df, total, shopping_df = calculate_quick(materials, area, complexity)
+        result_df, total = calculate_quick(materials, area, complexity)
 
         st.subheader("📊 Material Breakdown")
         st.dataframe(result_df.style.format({
@@ -149,8 +131,6 @@ if mode == "Quick Estimate (sq ft)":
         }))
         st.success(f"💰 Estimated Total Cost: **${total}**")
 
-        plot_cost_breakdown(result_df)
-
         with pd.ExcelWriter("estimate.xlsx", engine="openpyxl") as writer:
             result_df.to_excel(writer, index=False)
         with open("estimate.xlsx", "rb") as f:
@@ -159,13 +139,6 @@ if mode == "Quick Estimate (sq ft)":
         generate_pdf(result_df, "estimate.pdf", project_name)
         with open("estimate.pdf", "rb") as f:
             st.download_button("📄 Download Estimate (PDF)", f, "sheetrock_estimate.pdf")
-
-        st.subheader("📦 Material Shopping List")
-        st.dataframe(shopping_df)
-        with pd.ExcelWriter("shopping_list.xlsx", engine="openpyxl") as writer:
-            shopping_df.to_excel(writer, index=False)
-        with open("shopping_list.xlsx", "rb") as f:
-            st.download_button("🛒 Download Shopping List (Excel)", f, "sheetrock_shopping_list.xlsx")
 
 else:
     st.markdown("Add rooms below to calculate estimate:")
@@ -191,7 +164,7 @@ else:
         })
 
     if st.button("Estimate Room-Based Costs"):
-        detailed_df, total, shopping_df = calculate_detailed(materials, rooms)
+        detailed_df, total = calculate_detailed(materials, rooms)
 
         st.subheader("📊 Room-by-Room Breakdown")
         st.dataframe(detailed_df.style.format({
@@ -203,8 +176,6 @@ else:
         }))
         st.success(f"🧾 Grand Total Estimate: **${total}**")
 
-        plot_cost_breakdown(detailed_df)
-
         with pd.ExcelWriter("detailed_estimate.xlsx", engine="openpyxl") as writer:
             detailed_df.to_excel(writer, index=False)
         with open("detailed_estimate.xlsx", "rb") as f:
@@ -213,10 +184,3 @@ else:
         generate_pdf(detailed_df, "detailed_estimate.pdf", project_name)
         with open("detailed_estimate.pdf", "rb") as f:
             st.download_button("📄 Download Detailed Estimate (PDF)", f, "sheetrock_detailed_estimate.pdf")
-
-        st.subheader("📦 Material Shopping List")
-        st.dataframe(shopping_df)
-        with pd.ExcelWriter("shopping_list_detailed.xlsx", engine="openpyxl") as writer:
-            shopping_df.to_excel(writer, index=False)
-        with open("shopping_list_detailed.xlsx", "rb") as f:
-            st.download_button("🛒 Download Shopping List (Excel)", f, "sheetrock_shopping_list_detailed.xlsx")
