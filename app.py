@@ -57,10 +57,28 @@ def calculate_quick(materials_df, area, complexity_factor, extras=None):
     df = pd.DataFrame(results)
     if extras:
         for label, val in extras:
-            df = pd.concat([df, pd.DataFrame([{ 'Material': f"Extra: {label}", 'Units Needed': '', 'Unit Coverage (sqft)': '', 'Unit Price ($)': '', 'Labor per Unit ($)': '', 'Material Cost ($)': val, 'Labor Cost ($)': 0, 'Total Cost ($)': val }])], ignore_index=True)
+            df = pd.concat([df, pd.DataFrame([{
+                'Material': f"Extra: {label}",
+                'Units Needed': '',
+                'Unit Coverage (sqft)': '',
+                'Unit Price ($)': '',
+                'Labor per Unit ($)': '',
+                'Material Cost ($)': val,
+                'Labor Cost ($)': 0,
+                'Total Cost ($)': val
+            }])], ignore_index=True)
+
+    totals_row = pd.DataFrame([{
+        'Material': 'TOTAL',
+        'Units Needed': '',
+        'Unit Coverage (sqft)': '',
+        'Unit Price ($)': '',
+        'Labor per Unit ($)': '',
+        'Material Cost ($)': round(total_material_cost + sum(val for _, val in extras or []), 2),
+        'Labor Cost ($)': round(total_labor_cost, 2),
+        'Total Cost ($)': round(total_cost + sum(val for _, val in extras or []), 2)
+    }])
     df = pd.concat([df, totals_row], ignore_index=True)
-        for label, val in extras:
-            df = pd.concat([df, pd.DataFrame([{ 'Material': f"Extra: {label}", 'Units Needed': '', 'Unit Coverage (sqft)': '', 'Unit Price ($)': '', 'Labor per Unit ($)': '', 'Material Cost ($)': val, 'Labor Cost ($)': 0, 'Total Cost ($)': val }])], ignore_index=True)
     return df, round(total_cost + sum(val for _, val in extras or []), 2)
 
 def calculate_detailed(materials_df, rooms, extras=None):
@@ -85,15 +103,32 @@ def calculate_detailed(materials_df, rooms, extras=None):
     if extras:
         for label, val in extras:
             full_df = pd.concat([full_df, pd.DataFrame([{ 'Room': '', 'Material': f"Extra: {label}", 'Units Needed': '', 'Unit Coverage (sqft)': '', 'Unit Price ($)': '', 'Labor per Unit ($)': '', 'Material Cost ($)': val, 'Labor Cost ($)': 0, 'Total Cost ($)': val }])], ignore_index=True)
-        # duplicate line removed to avoid double-counting
-            full_df = pd.concat([full_df, pd.DataFrame([{ 'Room': '', 'Material': f"Extra: {label}", 'Units Needed': '', 'Unit Coverage (sqft)': '', 'Unit Price ($)': '', 'Labor per Unit ($)': '', 'Material Cost ($)': val, 'Labor Cost ($)': 0, 'Total Cost ($)': val }])], ignore_index=True)
+    totals_row = pd.DataFrame([{
+        'Room': '',
+        'Material': 'TOTAL',
+        'Units Needed': '',
+        'Unit Coverage (sqft)': '',
+        'Unit Price ($)': '',
+        'Labor per Unit ($)': '',
+        'Material Cost ($)': '',
+        'Labor Cost ($)': '',
+        'Total Cost ($)': round(grand_total + sum(val for _, val in extras or []), 2)
+    }])
+    full_df = pd.concat([full_df, totals_row], ignore_index=True)
     return full_df, round(grand_total + sum(val for _, val in extras or []), 2)
 
 # --- Streamlit UI ---
+extra_costs = []
+
+extra_count = st.number_input("How many extra items?", min_value=0, max_value=10, value=0)
+for i in range(int(extra_count)):
+    label = st.text_input(f"Description {i+1}", key=f"desc_{i}")
+    value = st.number_input(f"Cost {i+1} ($)", min_value=0.0, value=0.0, step=1.0, key=f"val_{i}")
+    extra_costs.append((label, value))
+extra_cost = sum(val for _, val in extra_costs)
 
 
-st.title("Build & Trim PRO")
-st.header("📐 Sheetrock Installation Estimator")
+st.title("📐 Sheetrock Installation Estimator")
 project_name = st.text_input("Project Name", "Untitled Project")
 materials = load_materials()
 mode = st.radio("Choose estimate type:", ["Quick Estimate (sq ft)", "Detailed Estimate (by room)"])
@@ -102,24 +137,15 @@ if mode == "Quick Estimate (sq ft)":
     area = st.number_input("Total area to cover (sq ft)", min_value=0.0, value=200.0, step=10.0)
     complexity = st.slider("Complexity factor (corners, curves)", 0.0, 0.30, 0.05, step=0.01)
 
-    st.markdown("### ➕ Add Additional Costs (tools, trim, delivery, etc.)")
-extra_costs = []
-extra_count = st.number_input("How many extra items?", min_value=0, max_value=10, value=0, key="extra_count_detailed")
-add_item_clicked = st.button("Add Another Item")
-if add_item_clicked:
-    extra_count += 1
-for i in range(int(extra_count)):
-    label = st.text_input(f"Description {i+1}", key=f"desc_{i}")
-    value = st.number_input(f"Cost {i+1} ($)", min_value=0.0, value=0.0, step=1.0, key=f"val_{i}")
-    extra_costs.append((label, value))
-extra_cost = sum(cost for _, cost in extra_costs)
+    
 
-if st.button("Estimate Costs"):
+
+if mode == "Quick Estimate (sq ft)" and st.button("Estimate Costs"):
         result_df, total = calculate_quick(materials, area, complexity, extras=extra_costs)
 
         st.subheader("📊 Material Breakdown")
         display_dataframe(result_df)
-        st.success(f"💰 Estimated Total Cost: **${total + extra_cost}**")
+        st.success(f"💰 Estimated Total Cost: **${total}**")
 
         with pd.ExcelWriter("estimate.xlsx", engine="openpyxl") as writer:
             result_df.to_excel(writer, index=False)
@@ -158,21 +184,15 @@ else:
             'windows': windows
         })
 
-    st.markdown("### ➕ Add Additional Costs (tools, trim, delivery, etc.)")
-extra_costs = []
-extra_count = st.number_input("How many extra items?", min_value=0, max_value=10, value=0)
-for i in range(int(extra_count)):
-    label = st.text_input(f"Description {i+1}", key=f"desc_{i}_detailed")
-    value = st.number_input(f"Cost {i+1} ($)", min_value=0.0, value=0.0, step=1.0, key=f"val_{i}_detailed")
-    extra_costs.append((label, value))
-extra_cost = sum(cost for _, cost in extra_costs)
+    
 
-if st.button("Estimate Room-Based Costs"):
+
+if mode == "Detailed Estimate (by room)" and st.button("Estimate Room-Based Costs"):
         detailed_df, total = calculate_detailed(materials, rooms, extras=extra_costs)
 
         st.subheader("📊 Room-by-Room Breakdown")
         display_dataframe(detailed_df)
-        st.success(f"🧾 Grand Total Estimate: **${total + extra_cost}**")
+        st.success(f"🧾 Grand Total Estimate: **${total}**")
 
         with pd.ExcelWriter("detailed_estimate.xlsx", engine="openpyxl") as writer:
             detailed_df.to_excel(writer, index=False)
