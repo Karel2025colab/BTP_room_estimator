@@ -1,10 +1,8 @@
 import streamlit as st
 import pandas as pd
-import os
 import math
 from datetime import datetime
 
-LOGO_PATH = "BTP_ogo_hands_transparent_small.png"
 
 @st.cache_data
 def load_materials():
@@ -26,7 +24,7 @@ def display_dataframe(df):
         'Labor per Unit ($)': format_currency
     }))
 
-def calculate_quick(materials_df, area, complexity_factor, extras=None):
+def calculate_quick(materials_df, area, complexity_factor):
     results = []
     total_cost = 0
     total_material_cost = 0
@@ -55,31 +53,18 @@ def calculate_quick(materials_df, area, complexity_factor, extras=None):
         total_cost += total
 
     df = pd.DataFrame(results)
-    if extras:
-        for label, val in extras:
-            df = pd.concat([df, pd.DataFrame([{
-                'Material': f"Extra: {label}",
-                'Units Needed': '',
-                'Unit Coverage (sqft)': '',
-                'Unit Price ($)': '',
-                'Labor per Unit ($)': '',
-                'Material Cost ($)': val,
-                'Labor Cost ($)': 0,
-                'Total Cost ($)': val
-            }])], ignore_index=True)
-
     totals_row = pd.DataFrame([{
         'Material': 'TOTAL',
         'Units Needed': '',
         'Unit Coverage (sqft)': '',
         'Unit Price ($)': '',
         'Labor per Unit ($)': '',
-        'Material Cost ($)': round(total_material_cost + sum(val for _, val in extras or []), 2),
+        'Material Cost ($)': round(total_material_cost, 2),
         'Labor Cost ($)': round(total_labor_cost, 2),
-        'Total Cost ($)': round(total_cost + sum(val for _, val in extras or []), 2)
+        'Total Cost ($)': round(total_cost, 2)
     }])
     df = pd.concat([df, totals_row], ignore_index=True)
-    return df, round(total_cost + sum(val for _, val in extras or []), 2)
+    return df, round(total_cost, 2)
 
 def calculate_detailed(materials_df, rooms, extras=None):
     all_results = []
@@ -95,7 +80,7 @@ def calculate_detailed(materials_df, rooms, extras=None):
         door_area = doors * 21
         window_area = windows * 12
         total_area = max(wall_area + ceiling_area - (door_area + window_area), 0)
-        room_results, room_cost = calculate_quick(materials_df, total_area, 0.10, extras=None)
+        room_results, room_cost = calculate_quick(materials_df, total_area, 0.10)
         room_results.insert(0, 'Room', room['name'])
         all_results.append(room_results)
         grand_total += room_cost
@@ -118,16 +103,6 @@ def calculate_detailed(materials_df, rooms, extras=None):
     return full_df, round(grand_total + sum(val for _, val in extras or []), 2)
 
 # --- Streamlit UI ---
-extra_costs = []
-
-extra_count = st.number_input("How many extra items?", min_value=0, max_value=10, value=0)
-for i in range(int(extra_count)):
-    label = st.text_input(f"Description {i+1}", key=f"desc_{i}")
-    value = st.number_input(f"Cost {i+1} ($)", min_value=0.0, value=0.0, step=1.0, key=f"val_{i}")
-    extra_costs.append((label, value))
-extra_cost = sum(val for _, val in extra_costs)
-
-
 st.title("📐 Sheetrock Installation Estimator")
 project_name = st.text_input("Project Name", "Untitled Project")
 materials = load_materials()
@@ -137,11 +112,8 @@ if mode == "Quick Estimate (sq ft)":
     area = st.number_input("Total area to cover (sq ft)", min_value=0.0, value=200.0, step=10.0)
     complexity = st.slider("Complexity factor (corners, curves)", 0.0, 0.30, 0.05, step=0.01)
 
-    
-
-
-if mode == "Quick Estimate (sq ft)" and st.button("Estimate Costs"):
-        result_df, total = calculate_quick(materials, area, complexity, extras=extra_costs)
+    if st.button("Estimate Costs"):
+        result_df, total = calculate_quick(materials, area, complexity)
 
         st.subheader("📊 Material Breakdown")
         display_dataframe(result_df)
@@ -154,14 +126,13 @@ if mode == "Quick Estimate (sq ft)" and st.button("Estimate Costs"):
                 "Email": ["buildandtrimPRO@gmail.com"],
                 "Phone": ["913 687 7602"],
                 "Project Name": [project_name],
-                "Date": [datetime.now().strftime("%Y-%m-%d %H:%M")],
-                "Additional Costs": [" + ".join(f"{desc}: ${val}" for desc, val in extra_costs) if extra_costs else "None"]
+                "Date": [datetime.now().strftime("%Y-%m-%d %H:%M")]
             })
             summary_info.to_excel(writer, index=False, startrow=len(result_df)+2)
         with open("estimate.xlsx", "rb") as f:
             st.download_button("📥 Download Estimate (Excel)", f, "sheetrock_estimate.xlsx")
 
-else:
+elif mode == "Detailed Estimate (by room)":
     st.markdown("Add rooms below to calculate estimate:")
     rooms = []
     room_count = st.number_input("How many rooms?", min_value=1, max_value=10, step=1)
@@ -184,10 +155,15 @@ else:
             'windows': windows
         })
 
-    
+    st.markdown("### ➕ Add Additional Costs (tools, trim, delivery, etc.)")
+    extra_costs = []
+    extra_count = st.number_input("How many extra items?", min_value=0, max_value=10, value=0)
+    for i in range(int(extra_count)):
+        label = st.text_input(f"Description {i+1}", key=f"desc_{i}")
+        value = st.number_input(f"Cost {i+1} ($)", min_value=0.0, value=0.0, step=1.0, key=f"val_{i}")
+        extra_costs.append((label, value))
 
-
-if mode == "Detailed Estimate (by room)" and st.button("Estimate Room-Based Costs"):
+    if st.button("Estimate Room-Based Costs"):
         detailed_df, total = calculate_detailed(materials, rooms, extras=extra_costs)
 
         st.subheader("📊 Room-by-Room Breakdown")
@@ -207,3 +183,4 @@ if mode == "Detailed Estimate (by room)" and st.button("Estimate Room-Based Cost
             summary_info.to_excel(writer, index=False, startrow=len(detailed_df)+2)
         with open("detailed_estimate.xlsx", "rb") as f:
             st.download_button("📥 Download Detailed Estimate (Excel)", f, "sheetrock_detailed_estimate.xlsx")
+
