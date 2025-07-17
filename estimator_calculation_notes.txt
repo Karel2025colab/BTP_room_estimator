@@ -1,0 +1,67 @@
+
+Sheetrock Estimator – Calculation Considerations & Formulas
+===========================================================
+
+1. Adjusted Surface Area
+------------------------
+Wall Area = 2 × height × (length + width)
+Ceiling Area = length × width
+Door Area = #doors × 21 (avg door ~3x7 ft)
+Window Area = #windows × 12 (avg window ~3x4 ft)
+
+Total Adjusted Area:
+    total_area = wall_area + ceiling_area - (door_area + window_area)
+    Ensure total_area >= 0
+
+2. Sheet Estimate
+-----------------
+Standard Sheet Area = 32 sq ft (4x8)
+Raw Sheet Count:
+    raw_sheets = total_area / 32
+
+Include waste and buffer:
+    sheets_needed = ceil(raw_sheets * (1 + waste_factor)) + 1
+    Suggested waste_factor = 0.12
+
+3. Joint and Tape Estimation
+----------------------------
+Each sheet contributes approximately:
+    - 2 vertical joints (8 ft total)
+    - 1 horizontal seam (~4 ft average)
+
+Estimated linear feet of joints:
+    linear_ft_of_joints = sheets_needed * 12
+
+Tape requirement:
+    tape_coverage = 500 ft per roll
+    tape_units = ceil(linear_ft_of_joints / tape_coverage)
+
+4. Corner Bead / Trim Estimation
+--------------------------------
+Assume:
+    - Each outside corner = ~8 ft
+    - User can specify number of corners or use defaults
+
+Corner Bead length:
+    corner_bead_length = num_outside_corners * 8
+
+Bundle size:
+    corner_bead_units = ceil(corner_bead_length / 100)
+
+Defaults (rectangular room):
+    - num_outside_corners = 4
+    - num_inside_corners = 4
+
+5. Joint Compound & Screws Adjustment
+-------------------------------------
+Joint compound:
+    compound_multiplier = 1 + (linear_ft_of_joints / 1000) * 0.1
+
+Screws:
+    screws_multiplier = 1 + (sheets_needed / 10) * 0.05
+
+Use these multipliers when calculating:
+    total_compound = base_amount * compound_multiplier
+    total_screws = base_amount * screws_multiplier
+
+These scale material needs based on complexity.
