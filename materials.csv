@@ -1,0 +1,5 @@
+material,coverage_sqft,unit_cost_usd,waste_factor,labor_cost_per_unit
+Sheetrock_4x8,32,15.00,0.10,3.00
+Joint_Compound,100,25.00,0.15,1.00
+Screws,300,5.00,0.05,0.50
+Tape,500,10.00,0.10,0.25
