@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import os
 import math
-from fpdf import FPDF
 from datetime import datetime
 
 LOGO_PATH = "BTP_ogo_hands_transparent_small.png"
@@ -11,34 +10,6 @@ LOGO_PATH = "BTP_ogo_hands_transparent_small.png"
 def load_materials():
     file_path = os.path.join(os.path.dirname(__file__), 'materials.csv')
     return pd.read_csv(file_path)
-
-def generate_pdf(df, filename, project_name):
-    pdf = FPDF()
-    pdf.add_page()
-    if os.path.exists(LOGO_PATH):
-        pdf.image(LOGO_PATH, x=10, y=8, w=25)
-    pdf.set_font("Arial", 'B', 12)
-    pdf.cell(200, 10, "Build & Trim PRO - Sheetrock Estimate", ln=1, align='C')
-    pdf.set_font("Arial", size=10)
-    pdf.cell(200, 8, f"Project: {project_name}", ln=1)
-    pdf.cell(200, 8, f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M')}", ln=1)
-    pdf.ln(4)
-    pdf.set_font("Courier", size=9)
-    col_widths = [30, 20, 25, 25, 25, 30, 30, 30]
-    header = df.columns.tolist()
-    for i, col in enumerate(header):
-        pdf.cell(col_widths[i % len(col_widths)], 10, str(col), border=1)
-    pdf.ln()
-    for _, row in df.iterrows():
-        for i, col in enumerate(header):
-            value = str(row[col])
-            pdf.cell(col_widths[i % len(col_widths)], 10, value, border=1)
-        pdf.ln()
-    pdf.ln(5)
-    pdf.set_font("Arial", 'I', 9)
-    pdf.cell(200, 8, "Build & Trim PRO", ln=1, align='C')
-    pdf.cell(200, 8, "buildandtrimPR.com | buildandtrimPRO@gmail.com | 913 687 7602", ln=1, align='C')
-    pdf.output(filename)
 
 def format_currency(val):
     try:
@@ -123,9 +94,19 @@ def calculate_detailed(materials_df, rooms):
     return full_df, round(grand_total, 2)
 
 # --- Streamlit UI ---
+
+# Optional cost prompt
+extra_costs = []
+if st.checkbox("➕ Add additional costs (tools, trim, etc.)"):
+    with st.expander("Add Extra Cost Items"):
+        extra_count = st.number_input("How many extra items?", min_value=1, max_value=10, value=1)
+        for i in range(int(extra_count)):
+            label = st.text_input(f"Description {i+1}", key=f"desc_{i}")
+            value = st.number_input(f"Cost {i+1} ($)", min_value=0.0, value=0.0, step=1.0, key=f"val_{i}")
+            extra_costs.append((label, value))
+extra_cost = sum(cost for _, cost in extra_costs)
 st.title("📐 Sheetrock Installation Estimator")
 project_name = st.text_input("Project Name", "Untitled Project")
-
 materials = load_materials()
 mode = st.radio("Choose estimate type:", ["Quick Estimate (sq ft)", "Detailed Estimate (by room)"])
 
@@ -138,16 +119,21 @@ if mode == "Quick Estimate (sq ft)":
 
         st.subheader("📊 Material Breakdown")
         display_dataframe(result_df)
-        st.success(f"💰 Estimated Total Cost: **${total}**")
+        st.success(f"💰 Estimated Total Cost: **${total + extra_cost}**")
 
         with pd.ExcelWriter("estimate.xlsx", engine="openpyxl") as writer:
             result_df.to_excel(writer, index=False)
+            summary_info = pd.DataFrame({
+                "Build & Trim PRO": ["buildandtrimPR.com"],
+                "Email": ["buildandtrimPRO@gmail.com"],
+                "Phone": ["913 687 7602"],
+                "Project Name": [project_name],
+                "Date": [datetime.now().strftime("%Y-%m-%d %H:%M")],
+                "Additional Costs": [" + ".join(f"{desc}: ${val}" for desc, val in extra_costs) if extra_costs else "None"]
+            })
+            summary_info.to_excel(writer, index=False, startrow=len(result_df)+2)
         with open("estimate.xlsx", "rb") as f:
             st.download_button("📥 Download Estimate (Excel)", f, "sheetrock_estimate.xlsx")
-
-        generate_pdf(result_df, "estimate.pdf", project_name)
-        with open("estimate.pdf", "rb") as f:
-            st.download_button("📄 Download Estimate (PDF)", f, "sheetrock_estimate.pdf")
 
 else:
     st.markdown("Add rooms below to calculate estimate:")
@@ -177,13 +163,17 @@ else:
 
         st.subheader("📊 Room-by-Room Breakdown")
         display_dataframe(detailed_df)
-        st.success(f"🧾 Grand Total Estimate: **${total}**")
+        st.success(f"🧾 Grand Total Estimate: **${total + extra_cost}**")
 
         with pd.ExcelWriter("detailed_estimate.xlsx", engine="openpyxl") as writer:
             detailed_df.to_excel(writer, index=False)
+            summary_info = pd.DataFrame({
+                "Build & Trim PRO": ["buildandtrimPR.com"],
+                "Email": ["buildandtrimPRO@gmail.com"],
+                "Phone": ["913 687 7602"],
+                "Project Name": [project_name],
+                "Date": [datetime.now().strftime("%Y-%m-%d %H:%M")]
+            })
+            summary_info.to_excel(writer, index=False, startrow=len(detailed_df)+2)
         with open("detailed_estimate.xlsx", "rb") as f:
             st.download_button("📥 Download Detailed Estimate (Excel)", f, "sheetrock_detailed_estimate.xlsx")
-
-        generate_pdf(detailed_df, "detailed_estimate.pdf", project_name)
-        with open("detailed_estimate.pdf", "rb") as f:
-            st.download_button("📄 Download Detailed Estimate (PDF)", f, "sheetrock_detailed_estimate.pdf")
