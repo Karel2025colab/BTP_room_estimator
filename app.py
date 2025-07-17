@@ -65,8 +65,8 @@ def calculate_quick(materials_df, area, complexity_factor, extras=None):
         'Labor Cost ($)': round(total_labor_cost, 2),
         'Total Cost ($)': round(total_cost, 2)
     }])
-    if extras:
-        for label, val in extras:
+        if extras:
+            for label, val in extras:
             df = pd.concat([df, pd.DataFrame([{ 'Material': f"Extra: {label}", 'Units Needed': '', 'Unit Coverage (sqft)': '', 'Unit Price ($)': '', 'Labor per Unit ($)': '', 'Material Cost ($)': val, 'Labor Cost ($)': 0, 'Total Cost ($)': val }])], ignore_index=True)
 df = pd.concat([df, totals_row], ignore_index=True)
         for label, val in extras:
@@ -98,8 +98,8 @@ def calculate_detailed(materials_df, rooms, extras=None):
     if extras:
         for label, val in extras:
             full_df = pd.concat([full_df, pd.DataFrame([{ 'Room': '', 'Material': f"Extra: {label}", 'Units Needed': '', 'Unit Coverage (sqft)': '', 'Unit Price ($)': '', 'Labor per Unit ($)': '', 'Material Cost ($)': val, 'Labor Cost ($)': 0, 'Total Cost ($)': val }])], ignore_index=True)
-full_df = pd.concat(all_results, ignore_index=True)
-        for label, val in extra_costs:
+    full_df = pd.concat(all_results, ignore_index=True)
+        # duplicate line removed to avoid double-counting
             full_df = pd.concat([full_df, pd.DataFrame([{ 'Room': '', 'Material': f"Extra: {label}", 'Units Needed': '', 'Unit Coverage (sqft)': '', 'Unit Price ($)': '', 'Labor per Unit ($)': '', 'Material Cost ($)': val, 'Labor Cost ($)': 0, 'Total Cost ($)': val }])], ignore_index=True)
     return full_df, round(grand_total + sum(val for _, val in extra_costs), 2)
 
@@ -119,9 +119,6 @@ if mode == "Quick Estimate (sq ft)":
     st.markdown("### ➕ Add Additional Costs (tools, trim, delivery, etc.)")
 extra_costs = []
 extra_count = st.number_input("How many extra items?", min_value=0, max_value=10, value=0, key="extra_count_detailed")
-add_item_clicked = st.button("Add Another Item", key="add_item_detailed")
-if add_item_clicked:
-    extra_count += 1
 add_item_clicked = st.button("Add Another Item")
 if add_item_clicked:
     extra_count += 1
