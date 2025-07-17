@@ -55,53 +55,39 @@ def calculate_quick(materials_df, area, complexity_factor, extras=None):
         total_cost += total
 
     df = pd.DataFrame(results)
-    totals_row = pd.DataFrame([{
-        'Material': 'TOTAL',
-        'Units Needed': '',
-        'Unit Coverage (sqft)': '',
-        'Unit Price ($)': '',
-        'Labor per Unit ($)': '',
-        'Material Cost ($)': round(total_material_cost, 2),
-        'Labor Cost ($)': round(total_labor_cost, 2),
-        'Total Cost ($)': round(total_cost, 2)
-    }])
-        if extras:
-            for label, val in extras:
-            df = pd.concat([df, pd.DataFrame([{ 'Material': f"Extra: {label}", 'Units Needed': '', 'Unit Coverage (sqft)': '', 'Unit Price ($)': '', 'Labor per Unit ($)': '', 'Material Cost ($)': val, 'Labor Cost ($)': 0, 'Total Cost ($)': val }])], ignore_index=True)
-df = pd.concat([df, totals_row], ignore_index=True)
+    if extras:
         for label, val in extras:
             df = pd.concat([df, pd.DataFrame([{ 'Material': f"Extra: {label}", 'Units Needed': '', 'Unit Coverage (sqft)': '', 'Unit Price ($)': '', 'Labor per Unit ($)': '', 'Material Cost ($)': val, 'Labor Cost ($)': 0, 'Total Cost ($)': val }])], ignore_index=True)
-    return df, round(total_cost + sum(val for _, val in extra_costs), 2)
+    df = pd.concat([df, totals_row], ignore_index=True)
+        for label, val in extras:
+            df = pd.concat([df, pd.DataFrame([{ 'Material': f"Extra: {label}", 'Units Needed': '', 'Unit Coverage (sqft)': '', 'Unit Price ($)': '', 'Labor per Unit ($)': '', 'Material Cost ($)': val, 'Labor Cost ($)': 0, 'Total Cost ($)': val }])], ignore_index=True)
+    return df, round(total_cost + sum(val for _, val in extras or []), 2)
 
 def calculate_detailed(materials_df, rooms, extras=None):
     all_results = []
     grand_total = 0
-
     for room in rooms:
         length = room['length']
         width = room['width']
         height = room['height']
         doors = room['doors']
         windows = room['windows']
-
         wall_area = 2 * height * (length + width)
         ceiling_area = length * width
         door_area = doors * 21
         window_area = windows * 12
         total_area = max(wall_area + ceiling_area - (door_area + window_area), 0)
-
         room_results, room_cost = calculate_quick(materials_df, total_area, 0.10, extras=None)
         room_results.insert(0, 'Room', room['name'])
         all_results.append(room_results)
         grand_total += room_cost
-
+    full_df = pd.concat(all_results, ignore_index=True)
     if extras:
         for label, val in extras:
             full_df = pd.concat([full_df, pd.DataFrame([{ 'Room': '', 'Material': f"Extra: {label}", 'Units Needed': '', 'Unit Coverage (sqft)': '', 'Unit Price ($)': '', 'Labor per Unit ($)': '', 'Material Cost ($)': val, 'Labor Cost ($)': 0, 'Total Cost ($)': val }])], ignore_index=True)
-    full_df = pd.concat(all_results, ignore_index=True)
         # duplicate line removed to avoid double-counting
             full_df = pd.concat([full_df, pd.DataFrame([{ 'Room': '', 'Material': f"Extra: {label}", 'Units Needed': '', 'Unit Coverage (sqft)': '', 'Unit Price ($)': '', 'Labor per Unit ($)': '', 'Material Cost ($)': val, 'Labor Cost ($)': 0, 'Total Cost ($)': val }])], ignore_index=True)
-    return full_df, round(grand_total + sum(val for _, val in extra_costs), 2)
+    return full_df, round(grand_total + sum(val for _, val in extras or []), 2)
 
 # --- Streamlit UI ---
 
